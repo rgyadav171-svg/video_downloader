@@ -5,19 +5,19 @@ import re
 
 app = Flask(__name__)
 
-# डाउनलोड फोल्डर (अगर नहीं है तो बना देंगे)
 DOWNLOAD_FOLDER = "downloads"
 if not os.path.exists(DOWNLOAD_FOLDER):
     os.makedirs(DOWNLOAD_FOLDER)
 
-# फ़ाइल नाम से अवैध कैरेक्टर हटाने के लिए
 def clean_filename(title):
     return re.sub(r'[\\/*?:"<>|]', "", title)
 
-# वीडियो की जानकारी लेने के लिए (बिना डाउनलोड किए)
 def get_video_info(url):
     try:
-        ydl_opts = {'quiet': True}
+        ydl_opts = {
+            'quiet': True,
+            'cookiefile': 'cookies.txt',   # <-- ADD THIS LINE
+        }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             return {
@@ -29,7 +29,6 @@ def get_video_info(url):
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
-# वीडियो डाउनलोड करने के लिए
 def download_video(url):
     try:
         ydl_opts = {
@@ -37,6 +36,7 @@ def download_video(url):
             'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
             'quiet': True,
             'no_warnings': True,
+            'cookiefile': 'cookies.txt',   # <-- ADD THIS LINE
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
@@ -48,12 +48,10 @@ def download_video(url):
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
-# होम पेज
 @app.route('/')
 def index():
     return render_template('index.html')
 
-# वीडियो की जानकारी देने वाला API
 @app.route('/get_info', methods=['POST'])
 def get_info():
     data = request.get_json()
@@ -63,7 +61,6 @@ def get_info():
     result = get_video_info(url)
     return jsonify(result)
 
-# डाउनलोड करने वाला API
 @app.route('/download', methods=['POST'])
 def download():
     data = request.get_json()
@@ -80,6 +77,5 @@ def download():
     else:
         return jsonify({'success': False, 'error': result['error']})
 
-# यह लाइन सिर्फ local run के लिए है, Render पर gunicorn use करेगा
 if __name__ == '__main__':
     app.run(debug=True)
