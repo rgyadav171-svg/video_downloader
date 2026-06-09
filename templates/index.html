@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>वीडियो डाउनलोडर - YouTube, Instagram, Facebook</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .sub {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        input {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            transition: 0.3s;
+        }
+        input:focus {
+            border-color: #667eea;
+            outline: none;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: 0.3s;
+            width: 100%;
+        }
+        button:hover {
+            background: #5a67d8;
+            transform: scale(0.98);
+        }
+        .loader {
+            display: none;
+            margin: 20px 0;
+            font-size: 16px;
+            color: #667eea;
+        }
+        .info-card {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            display: none;
+        }
+        .info-card img {
+            max-width: 100%;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+        .download-btn {
+            background: #28a745;
+            margin-top: 15px;
+        }
+        .download-btn:hover {
+            background: #218838;
+        }
+        .error {
+            color: red;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        .footer {
+            margin-top: 30px;
+            font-size: 12px;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📥 वीडियो डाउनलोडर</h1>
+        <div class="sub">YouTube · Instagram · Facebook</div>
+        
+        <input type="text" id="videoUrl" placeholder="वीडियो का लिंक पेस्ट करें..." />
+        <button id="fetchBtn">🔍 जानकारी लें</button>
+        
+        <div class="loader" id="loader">⏳ लोड हो रहा है, कृपया धैर्य रखें...</div>
+        <div class="error" id="errorMsg"></div>
+        
+        <div class="info-card" id="infoCard">
+            <img id="thumbnail" src="" alt="थंबनेल">
+            <h3 id="videoTitle"></h3>
+            <button id="downloadBtn" class="download-btn">⬇️ वीडियो डाउनलोड करें</button>
+        </div>
+        <div class="footer">
+            ⚠️ केवल निजी इस्तेमाल के लिए। कॉपीराइट नियमों का पालन करें।
+        </div>
+    </div>
+
+    <script>
+        const urlInput = document.getElementById('videoUrl');
+        const fetchBtn = document.getElementById('fetchBtn');
+        const loader = document.getElementById('loader');
+        const errorMsg = document.getElementById('errorMsg');
+        const infoCard = document.getElementById('infoCard');
+        const thumbnail = document.getElementById('thumbnail');
+        const videoTitle = document.getElementById('videoTitle');
+        const downloadBtn = document.getElementById('downloadBtn');
+        
+        let currentVideoUrl = '';
+
+        fetchBtn.onclick = async () => {
+            const url = urlInput.value.trim();
+            if (!url) {
+                errorMsg.innerText = 'कृपया कोई URL डालें';
+                return;
+            }
+            errorMsg.innerText = '';
+            infoCard.style.display = 'none';
+            loader.style.display = 'block';
+            
+            try {
+                const response = await fetch('/get_info', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    currentVideoUrl = url;
+                    thumbnail.src = data.thumbnail || 'https://via.placeholder.com/300x200?text=No+Thumbnail';
+                    videoTitle.innerText = data.title;
+                    infoCard.style.display = 'block';
+                } else {
+                    errorMsg.innerText = 'त्रुटि: ' + (data.error || 'जानकारी नहीं ला सके');
+                }
+            } catch (err) {
+                errorMsg.innerText = 'नेटवर्क त्रुटि: ' + err.message;
+            } finally {
+                loader.style.display = 'none';
+            }
+        };
+        
+        downloadBtn.onclick = async () => {
+            if (!currentVideoUrl) return;
+            downloadBtn.innerText = 'डाउनलोड शुरू...';
+            downloadBtn.disabled = true;
+            try {
+                const response = await fetch('/download', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: currentVideoUrl })
+                });
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const link = document.createElement('a');
+                    const objectUrl = URL.createObjectURL(blob);
+                    let filename = 'video.mp4';
+                    const contentDisposition = response.headers.get('Content-Disposition');
+                    if (contentDisposition) {
+                        const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                        if (match && match[1]) filename = match[1].replace(/['"]/g, '');
+                    }
+                    link.href = objectUrl;
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(objectUrl);
+                } else {
+                    const err = await response.json();
+                    errorMsg.innerText = 'डाउनलोड विफल: ' + (err.error || 'अज्ञात त्रुटि');
+                }
+            } catch (err) {
+                errorMsg.innerText = 'डाउनलोड त्रुटि: ' + err.message;
+            } finally {
+                downloadBtn.innerText = '⬇️ वीडियो डाउनलोड करें';
+                downloadBtn.disabled = false;
+            }
+        };
+    </script>
+</body>
+</html>
